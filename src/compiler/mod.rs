@@ -20,7 +20,7 @@ pub use self::generator::Generator;
 pub use self::chunk::{Chunk, ChunkLocation,ChunkId};
 pub use self::tokenizer::Tokenizer;
 pub use self::token::Token;
-pub use self::literal::Literal;
+pub use self::literal::*;
 pub use self::keyword::Keyword;
 pub use self::operator::OperatorKind;
 pub use self::error::CompilerError;

@@ -5,8 +5,23 @@ pub enum Literal {
     Boolean(bool),
     Binary(u64),
     Number(String),
-    String(String),
+    String(String, QuoteKind),
 
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum QuoteKind {
+    SpeechMark,
+    Apostrophe
+}
+
+impl ToString for QuoteKind {
+    fn to_string(&self) -> String {
+        return match *self {
+            QuoteKind::Apostrophe => "'",
+            QuoteKind::SpeechMark => "\"",
+        }.to_owned();
+    }
 }
 
 impl ToString for Literal {
@@ -19,7 +34,7 @@ impl ToString for Literal {
             Undefined => "undefined".to_owned(),
             Boolean(true) => "true".to_owned(),
             Boolean(false) => "false".to_owned(),
-            String(ref string) => format!("'{}'",string),
+            String(ref string, ref quote) => format!("{}{}{}", quote.to_string(), string, quote.to_string()),
             Number(ref string) => string.to_string(),
         };
         return str;

@@ -5,14 +5,15 @@ use self::rayon::prelude::*;
 use super::{Chunk, ChunkId, Generator, ChunkLocation, CompilerError, CompilerOptions};
 use super::module::Resolver;
 use super::parser::{JsParser, ParserError, ParserErrorKind, ParserResult, Parser, ParserOptions};
-use super::ast::{SourceLocation};
+use super::ast::SourceLocation;
 
 use super::transform::PluginManager;
 
 use std::io::prelude::*;
+use std::io::{Write, BufWriter};
 use std::fs::File;
 use std::fs;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -75,7 +76,7 @@ impl Compiler {
                     parse_duration += result.duration;
                 }
                 Err(err) => {
-                    eprintln!("{:?}",err);
+                    eprintln!("{:?}", err);
                 }
             }
         };
@@ -147,13 +148,14 @@ impl Compiler {
                 Some(ref node) => {
                     let src = generator.generate(node);
 
-                    let mut file = match out_path.exists() {
-                        true => File::open(&out_path).unwrap(),
-                        false => File::create(&out_path).unwrap(),
+                    match fs::OpenOptions::new().create(true).write(true).open(out_path) {
+                        Ok(ref file) => {
+                            let mut buf = BufWriter::new(file);
+                            buf.write_all(src.as_bytes());
+                            count += 1;
+                        },
+                        Err(err) => {},
                     };
-
-                    file.write_all(src.as_bytes());
-                    count += 1;
                 }
                 None => {}
             }

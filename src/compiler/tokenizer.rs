@@ -1,10 +1,6 @@
 use super::lexicon;
 use super::ast::declaration::DeclarationKind;
-use super::Chunk;
-use super::Token;
-use super::Keyword;
-use super::Literal;
-use super::OperatorKind;
+use super::{Chunk,Token,Keyword,QuoteKind,Literal,OperatorKind};
 
 use std::result::Result;
 use std::error::Error;
@@ -102,7 +98,7 @@ impl Tokenizer {
                     }
                     '>' => {
                         chunk.bump_char();
-                        OperatorKind::FatArrow
+                        return Ok(Token::FatArrow);
                     }
                     _ => OperatorKind::Assign
                 };
@@ -224,7 +220,14 @@ impl Tokenizer {
         let end = chunk.index;
         let value = chunk.slice(start, end).to_owned();
         chunk.bump_char();
-        return Token::Literal(Literal::String(value));
+
+        let quote = match quote_char {
+            '"' => QuoteKind::SpeechMark,
+            '\'' => QuoteKind::Apostrophe,
+            _ => panic!("Invalid char")
+        };
+
+        return Token::Literal(Literal::String(value,quote));
     }
 
     fn read_number<'a>(&self, chunk: &'a mut Chunk, start: usize) -> &'a str {

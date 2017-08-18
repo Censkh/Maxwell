@@ -17,7 +17,7 @@ pub struct FunctionTrivia {
 }
 
 impl FunctionTrivia {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         return FunctionTrivia {
             body_suffix: String::new(),
             identifier_gap: String::new(),
@@ -29,14 +29,43 @@ impl FunctionTrivia {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct ArrowFunctionTrivia {
+    pub parameters_gap: String,
+    pub arrow_gap: String,
+    pub body_gap: String,
+    pub parameters_padding: String,
+    pub body_suffix: String,
+}
+
+impl ArrowFunctionTrivia {
+    pub fn default() -> Self {
+        return ArrowFunctionTrivia {
+            body_suffix: String::new(),
+            arrow_gap: String::new(),
+            parameters_gap: String::new(),
+            body_gap: String::new(),
+            parameters_padding: String::new()
+        };
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Void,
     This,
+    Bracketed {
+        expression: Box<ExpressionNode>
+    },
     Function {
         name: String,
         parameters: Vec<Parameter>,
         body: BodyNode,
         trivia: FunctionTrivia
+    },
+    ArrowFunction {
+        parameters: Vec<Parameter>,
+        body: BodyNode,
+        trivia: ArrowFunctionTrivia
     },
     Call {
         identifier: String,
@@ -93,6 +122,7 @@ impl Node for ExpressionNode {
                 }
                 format!("{}({})", identifier, params)
             }
+            Bracketed { ref expression } => format!("({})", expression.generate()),
             This => "this".to_owned(),
             Identifier(ref string) => string.to_owned(),
             Literal(ref literal) => literal.to_string().to_owned(),

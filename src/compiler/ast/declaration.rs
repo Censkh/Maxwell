@@ -3,13 +3,12 @@ use super::Node;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct DeclarationTrivia {
-    pub prefix: String,
     pub assign_prefix: String
 }
 
 impl DeclarationTrivia {
     pub fn new() -> Self {
-        return DeclarationTrivia { prefix: String::new(), assign_prefix: String::new() };
+        return DeclarationTrivia { assign_prefix: String::new() };
     }
 }
 
@@ -38,7 +37,7 @@ impl Node for DeclarationNode {
         let mut expression = String::new();
         match self.expression {
             Some(ref expression_node) => {
-                expression += " = ";
+                expression += " =";
                 expression += &expression_node.generate();
             }
             None => {}

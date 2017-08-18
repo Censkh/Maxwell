@@ -1,8 +1,7 @@
-use super::expression::{ExpressionNode,Expression};
-use super::declaration::{DeclarationKind,DeclarationNode};
-use super::NodeTrivia;
-use super::SourceLocation;
-use super::Node;
+use super::expression::{ExpressionNode, Expression};
+use super::declaration::{DeclarationKind, DeclarationNode};
+use super::{NodeTrivia, SourceLocation, Node};
+use super::super::QuoteKind;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ImportTrivia {
@@ -11,6 +10,7 @@ pub struct ImportTrivia {
     pub alias_prefix: String,
     pub from_prefix: String,
     pub source_prefix: String,
+    pub quote_kind: QuoteKind,
 }
 
 impl ImportTrivia {
@@ -21,6 +21,7 @@ impl ImportTrivia {
             from_prefix: String::new(),
             alias_prefix: String::new(),
             source_prefix: String::new(),
+            quote_kind: QuoteKind::Apostrophe,
         };
     }
 }
@@ -116,14 +117,21 @@ impl Node for StatementNode {
                     &None => String::new(),
                 };
                 //TODO: We don't store the literal quote type. Could be "" or ''
-                format!("import{}{}{}{}from{}'{}'", trivia.declaration_prefix, declaration_string, alias_string, trivia.from_prefix, trivia.source_prefix, source.to_owned())
+                format!("import{}{}{}{}from{}{}{}{}",
+                        trivia.declaration_prefix,
+                        declaration_string,
+                        alias_string,
+                        trivia.from_prefix,
+                        trivia.source_prefix,
+                        trivia.quote_kind.to_string(),
+                        source.to_owned(),
+                        trivia.quote_kind.to_string())
             }
         };
-        string += match self.terminator {
+        return format!("{}{}{}{}", self.trivia.prefix, string, self.trivia.suffix, match self.terminator {
             StatementTerminator::Semicolon => ";",
             StatementTerminator::Newline => "\n",
             _ => ""
-        };
-        return format!("{}{}{}", self.trivia.prefix, string, self.trivia.suffix);
+        });
     }
 }

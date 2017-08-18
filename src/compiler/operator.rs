@@ -1,6 +1,5 @@
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperatorKind {
-    FatArrow,         //   …  => …
     Accessor,         //   …  .  …
     New,              //     new …
     Increment,        //      ++ … | … ++
@@ -56,7 +55,6 @@ use self::OperatorKind::*;
 impl ToString for OperatorKind {
     fn to_string(&self) -> String {
         let str = match *self {
-            FatArrow => "=>",
             Accessor => ".",
             New => "new",
             Increment => "++",

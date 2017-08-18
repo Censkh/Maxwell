@@ -7,6 +7,7 @@ pub enum Token {
     Semicolon,
     Colon,
     Comma,
+    FatArrow,
     BracketOpen,
     BracketClose,
     BraceOpen,
@@ -27,6 +28,7 @@ impl<> ToString for Token {
         let str = match *self {
             BraceClose => String::from("}"),
             BraceOpen => "{".to_owned(),
+            FatArrow => String::from("=>"),
             BracketClose => ")".to_owned(),
             BracketOpen => "(".to_owned(),
             Semicolon => ";".to_owned(),

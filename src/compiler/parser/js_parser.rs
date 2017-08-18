@@ -1,7 +1,7 @@
 use super::{Parser, ParserError, ParserErrorKind, ParserResult, ParserOptions};
 
 use super::super::{Token, Keyword, OperatorKind, Literal, Tokenizer};
-use super::super::transform::{PluginPass};
+use super::super::transform::PluginPass;
 use super::super::ast::declaration::{DeclarationKind, DeclarationNode, DeclarationTrivia};
 use super::super::ast::expression::{FunctionTrivia, ExpressionNode, Expression};
 use super::super::ast::statement::{StatementNode, Statement, StatementTerminator, ImportDeclaration, ImportTrivia};
@@ -9,7 +9,7 @@ use super::super::ast::{NodeTrivia, Parameter, ParameterTrivia, SyntaxTree, Sour
 
 use super::super::ast::body::BodyNode;
 
-use std::time::{Instant};
+use std::time::Instant;
 
 pub struct JsParser {
     tokenizer: Tokenizer,
@@ -54,7 +54,7 @@ impl JsParser {
     fn parse_function(&mut self, options: &mut ParserOptions) -> Result<(Expression, Option<StatementTerminator>), ParserError> {
         use self::Token::*;
 
-        let mut trivia = FunctionTrivia::new();
+        let mut trivia = FunctionTrivia::default();
 
         let (identifier_token, identifier_gap) = self.tokenizer.peek_ignore_padding(options.chunk);
         self.tokenizer.pop_ignore_padding(options.chunk);
@@ -145,6 +145,41 @@ impl JsParser {
         options.plugin_manager.apply_plugin(pass);
     }
 
+    fn parse_bracket_expression(&mut self, options: &mut ParserOptions) -> Result<Expression, ParserError> {
+        use self::Token::*;
+
+        let mut expressions = Vec::new();
+
+        loop {
+            let (token, prefix) = self.tokenizer.peek_ignore_padding(options.chunk);
+            match token {
+                BracketClose => {
+                    self.tokenizer.pop_ignore_padding(options.chunk);
+                    break;
+                }
+                Comma => {
+                    self.tokenizer.pop_ignore_padding(options.chunk);
+                }
+                _ => {
+                    match self.parse_expression(options) {
+                        Ok((child_expression, _)) => {
+                            expressions.push(child_expression);
+                        }
+                        Err(err) => return Err(err)
+                    }
+                }
+            }
+        }
+        let (possible_fat_arrow, arrow_prefix) = self.tokenizer.peek_ignore_padding(options.chunk);
+        if possible_fat_arrow == FatArrow {
+            return Err(ParserError::new(ParserErrorKind::Syntax, String::from("ASDasd"), SourceLocation::default()));
+        } else {
+            let expression = expressions.remove(0);
+            return Ok(Expression::Bracketed { expression: Box::new(expression) });
+        }
+    }
+
+
     fn parse_expression(&mut self, options: &mut ParserOptions) -> Result<(ExpressionNode, Option<StatementTerminator>), ParserError> {
         let mut trivia = NodeTrivia::new();
         let mut expression_option: Option<Expression> = None;
@@ -153,6 +188,15 @@ impl JsParser {
         let (token, prefix) = self.tokenizer.peek_ignore_padding(options.chunk);
         trivia.prefix = prefix;
         match token {
+            Token::BracketOpen => {
+                self.tokenizer.pop_ignore_padding(options.chunk);
+                match self.parse_bracket_expression(options) {
+                    Ok(expression) => {
+                        expression_option = Some(expression);
+                    }
+                    Err(err) => return Err(err)
+                }
+            }
             Token::Literal(ref literal) => {
                 expression_option = Some(Expression::Literal(literal.clone()));
                 self.tokenizer.pop_ignore_padding(options.chunk);
@@ -231,7 +275,6 @@ impl JsParser {
     fn parse_declaration(&mut self, options: &mut ParserOptions, kind: &DeclarationKind) -> Result<(Statement, Option<StatementTerminator>), ParserError> {
         use self::Token::*;
 
-        let terminator ;
         let mut declarations = Vec::new();
 
         loop {
@@ -241,8 +284,7 @@ impl JsParser {
                 Identifier(ref name) => {
                     self.tokenizer.pop_ignore_whitespace(options.chunk);
                     let mut trivia = DeclarationTrivia::new();
-                    trivia.prefix = identifier_prefix;
-                    let expression ;
+                    let expression;
 
                     let (next_token, next_prefix) = self.tokenizer.peek_ignore_padding(options.chunk);
                     match next_token {
@@ -262,20 +304,20 @@ impl JsParser {
                     self.tokenizer.pop_ignore_whitespace(options.chunk);
                 }
                 Newline => {
-                    terminator = Some(StatementTerminator::Newline);
                     self.tokenizer.pop_ignore_whitespace(options.chunk);
+                    options.chunk.index -=1;
                     break;
                 }
                 Semicolon => {
-                    terminator = Some(StatementTerminator::Semicolon);
                     self.tokenizer.pop_ignore_whitespace(options.chunk);
+                    options.chunk.index -=1;
                     break;
                 }
                 _ => return Err(ParserError::new(ParserErrorKind::Syntax, format!("Declaration does not end correctly."), SourceLocation::default()))
             }
         }
 
-        return Ok((Statement::Declaration { kind: kind.clone(), declarations }, terminator));
+        return Ok((Statement::Declaration { kind: kind.clone(), declarations }, None));
     }
 
     fn parse_return(&mut self, options: &mut ParserOptions) -> Result<(Statement, Option<StatementTerminator>), ParserError> {
@@ -336,8 +378,9 @@ impl JsParser {
                     let (source_token, source_prefix) = self.tokenizer.peek_ignore_padding(options.chunk);
                     self.tokenizer.pop_ignore_padding(options.chunk);
                     match source_token {
-                        Token::Literal(Literal::String(ref name)) => {
+                        Token::Literal(Literal::String(ref name, ref quote)) => {
                             trivia.source_prefix = source_prefix;
+                            trivia.quote_kind = quote.clone();
                             source = Some(name.to_owned());
                         }
                         _ => return Err(ParserError::new(ParserErrorKind::Syntax, format!("Invalid import."), SourceLocation::default()))
@@ -412,16 +455,23 @@ impl JsParser {
         if terminator_option.is_none() {
             loop {
                 let token = self.tokenizer.peek_token(options.chunk).unwrap();
-                match token {
+                 match token {
                     Whitespace(count) => {
                         for _ in 0..count {
                             trivia.suffix += " ";
                         }
+                        self.tokenizer.pop_token(options.chunk);
                     }
                     Newline => {
-                        terminator_option = Some(StatementTerminator::Newline);
                         self.tokenizer.pop_token(options.chunk);
-                        break;
+                        let (next_proper_token, pad) = self.tokenizer.peek_ignore_whitespace(options.chunk);
+
+                        if next_proper_token == Newline || next_proper_token == Semicolon {
+                            trivia.suffix += "\n";
+                        } else {
+                            terminator_option = Some(StatementTerminator::Newline);
+                            break;
+                        }
                     }
                     Semicolon => {
                         terminator_option = Some(StatementTerminator::Semicolon);
