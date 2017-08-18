@@ -1,0 +1,10 @@
+{
+  "src": {
+    "base": "./",
+    "entry": "test.js"
+  },
+  "out": "dist/",
+  "plugins": {
+    "minify": {}
+  }
+}
